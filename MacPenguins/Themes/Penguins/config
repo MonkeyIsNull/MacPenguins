@@ -1,0 +1,21 @@
+# MacPenguins theme config - converted from original xpenguins
+# Penguins theme configuration
+
+delay 60
+
+# Penguin types available in this theme
+types normal skateboarder
+
+# Normal penguin configuration
+type normal
+    size 30 30
+    speed 4
+    frames 8
+    directions 2
+
+# Skateboarder penguin configuration
+type skateboarder
+    size 30 30
+    speed 6
+    frames 8
+    directions 2
