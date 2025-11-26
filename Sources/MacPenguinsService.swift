@@ -1,9 +1,6 @@
 //
 //  MacPenguinsService.swift
 //  MacPenguins
-//
-//  Created by MacPenguins on 26/11/2024.
-//
 
 import Foundation
 import CoreGraphics
@@ -13,10 +10,11 @@ class MacPenguinsService {
 
     // Core components
     private let windowManager: SimpleWindowManager
-    private let penguinEngine: PenguinEngine
-    private let animationRenderer: SimpleRenderer
-    private let themeManager: ThemeManager
-    private let collisionDetector: CollisionDetector
+    private let animationRenderer: BasicRenderer
+    private let collision: SimpleCollision
+
+    // Simple penguin management
+    private var penguins: [SimplePenguin] = []
 
     // Service state
     private var isRunning = false
@@ -32,13 +30,8 @@ class MacPenguinsService {
     init() {
         // Initialize core components
         self.windowManager = SimpleWindowManager()
-        self.themeManager = ThemeManager()
-        self.collisionDetector = CollisionDetector()
-        self.animationRenderer = SimpleRenderer()
-        self.penguinEngine = PenguinEngine(
-            themeManager: themeManager,
-            collisionDetector: collisionDetector
-        )
+        self.collision = SimpleCollision()
+        self.animationRenderer = BasicRenderer()
 
         setupComponents()
     }
@@ -54,19 +47,11 @@ class MacPenguinsService {
 
         print("Starting MacPenguins service...")
 
-        // Load default theme
-        do {
-            try themeManager.loadTheme(named: currentTheme)
-        } catch {
-            print("Failed to load theme '\(currentTheme)': \(error)")
-            return
-        }
-
         // Setup animation rendering
         animationRenderer.setupOverlayWindows()
 
         // Initialize penguins
-        penguinEngine.spawnInitialPenguins(count: penguinCount)
+        spawnPenguins(count: penguinCount)
 
         // Start window monitoring
         windowManager.startMonitoring()
@@ -87,7 +72,7 @@ class MacPenguinsService {
         stopUpdateLoop()
         windowManager.stopMonitoring()
         animationRenderer.cleanup()
-        penguinEngine.removeAllPenguins()
+        penguins.removeAll()
 
         isRunning = false
         print("MacPenguins service stopped")
@@ -97,23 +82,10 @@ class MacPenguinsService {
         penguinCount = max(0, min(count, 100)) // Limit between 0 and 100
 
         if isRunning {
-            penguinEngine.adjustPenguinCount(to: penguinCount)
+            adjustPenguinCount(to: penguinCount)
         }
     }
 
-    func setTheme(_ themeName: String) {
-        currentTheme = themeName
-
-        if isRunning {
-            do {
-                try themeManager.loadTheme(named: themeName)
-                penguinEngine.reloadWithNewTheme()
-                print("Switched to theme: \(themeName)")
-            } catch {
-                print("Failed to switch to theme '\(themeName)': \(error)")
-            }
-        }
-    }
 
     // MARK: - Private Methods
 
@@ -125,11 +97,6 @@ class MacPenguinsService {
 
         windowManager.onSpaceChanged = { [weak self] in
             self?.handleSpaceChanged()
-        }
-
-        // Configure penguin engine callbacks
-        penguinEngine.onPenguinsUpdated = { [weak self] penguins in
-            self?.animationRenderer.updatePenguins(penguins)
         }
     }
 
@@ -150,23 +117,23 @@ class MacPenguinsService {
             print("🔄 First update() call - main loop is running!")
         }
 
-        // Update collision data
+        // Update collision data with current windows
         let windows = windowManager.getCurrentSpaceWindows()
-        collisionDetector.updateWindowBounds(windows.map { $0.bounds })
+        collision.updateWindows(windows)
 
-        // Debug: Always print window count for first few seconds
+        // Debug output
         debugCounter += 1
-        if debugCounter < 10 || debugCounter % 60 == 0 {
-            print("🪟 Update \(debugCounter): Detected \(windows.count) windows for collision")
-            if windows.count > 0 {
-                print("   First window: \(windows[0].bounds)")
-            }
+        if debugCounter < 5 || debugCounter % 180 == 0 {
+            print("🪟 Update \(debugCounter): \(windows.count) windows, \(penguins.count) penguins")
         }
 
-        // Update penguin physics and behavior
-        penguinEngine.update()
+        // Update all penguins with simple physics
+        for penguin in penguins {
+            penguin.update(collision: collision)
+        }
 
-        // Rendering is handled by the renderer via callbacks
+        // Update renderer with current penguins
+        updateRenderer()
     }
 
     private func handleWindowsChanged() {
@@ -178,9 +145,44 @@ class MacPenguinsService {
         // Space/desktop changed - hide penguins briefly then respawn
         print("Desktop space changed")
 
-        penguinEngine.handleSpaceChange()
+        // Remove all penguins and respawn
+        penguins.removeAll()
+        spawnPenguins(count: penguinCount)
 
         // Update overlay windows for new space
         animationRenderer.handleSpaceChange()
+    }
+
+    // MARK: - Penguin Management
+
+    private func spawnPenguins(count: Int) {
+        let screenWidth = NSScreen.main?.frame.width ?? 1440
+        let screenHeight = NSScreen.main?.frame.height ?? 900
+
+        for _ in 0..<count {
+            let x = CGFloat.random(in: 100...(screenWidth - 100))
+            let y: CGFloat = screenHeight + 50 // Above screen (AppKit coordinates: Y=0 at bottom)
+            let penguin = SimplePenguin(position: CGPoint(x: x, y: y))
+            penguins.append(penguin)
+        }
+
+        print("Spawned \(count) penguins")
+    }
+
+    private func adjustPenguinCount(to targetCount: Int) {
+        if targetCount > penguins.count {
+            // Add penguins
+            let toAdd = targetCount - penguins.count
+            spawnPenguins(count: toAdd)
+        } else if targetCount < penguins.count {
+            // Remove excess penguins
+            let toRemove = penguins.count - targetCount
+            penguins.removeLast(toRemove)
+        }
+    }
+
+    private func updateRenderer() {
+        // BasicRenderer works directly with SimplePenguin
+        animationRenderer.updatePenguins(penguins)
     }
 }

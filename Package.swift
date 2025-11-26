@@ -16,12 +16,11 @@ let package = Package(
             path: "Sources",
             sources: [
                 "main.swift",
-                "Penguin.swift",
-                "PenguinEngine.swift",
+                "LegacyCompat.swift",
+                "SimplePenguin.swift",
+                "SimpleCollision.swift",
                 "SimpleWindowManager.swift",
-                "SimpleRenderer.swift",
-                "CollisionDetector.swift",
-                "ThemeManager.swift",
+                "BasicRenderer.swift",
                 "MacPenguinsService.swift"
             ],
             publicHeadersPath: "include",
