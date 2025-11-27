@@ -41,10 +41,12 @@ class SimpleCollision {
                     windowID: window.id
                 )
 
-                // Only add surfaces that aren't too close to screen edges
-                if surface.top > 50 && surface.top < screenHeight - 50 {
-                    windowSurfaces.append(surface)
-                }
+
+
+                // Temporarily disable window surfaces again - focus on ground animation first
+                // if surface.top > 50 && surface.top < screenHeight - 50 {
+                //     windowSurfaces.append(surface)
+                // }
             }
         }
 
@@ -60,7 +62,6 @@ class SimpleCollision {
             windowID: nil
         )
 
-        print("🔄 Updated collision: \(windowSurfaces.count) window surfaces loaded")
     }
 
     func checkFallingCollision(penguinX: CGFloat, penguinY: CGFloat, nextY: CGFloat) -> WindowSurface? {

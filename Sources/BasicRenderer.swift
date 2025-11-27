@@ -77,6 +77,9 @@ class BasicRenderer {
             penguinViews[penguin.id] = penguinView
         }
 
+        // Update sprite for state changes AND direction changes
+        updatePenguinSprite(penguin, penguinView: penguinView)
+
         // Update position (SimplePenguin already uses AppKit coordinates)
         let viewFrame = NSRect(
             x: penguin.position.x - penguin.size.width / 2,
@@ -89,26 +92,85 @@ class BasicRenderer {
     }
 
     private func createPenguinView(for penguin: SimplePenguin) -> NSView {
-        let view = NSView()
+        let imageView = NSImageView()
 
-        // Set background color based on penguin state
-        let color: NSColor
+        // Load sprite based on penguin state and direction
+        let spriteName: String
         switch penguin.state {
         case .falling:
-            color = NSColor.systemRed
+            spriteName = "faller_frame1"
         case .walking:
-            color = NSColor.systemBlue
+            // Choose animated sprite based on direction and frame
+            let direction = penguin.velocity.x >= 0 ? "right" : "left"
+            let frame = penguin.currentFrame % 8 // 8 walking frames
+            spriteName = "walker_\(direction)_\(frame)"
+            print("🎬 Penguin \(penguin.id.uuidString.prefix(8)) walking: direction=\(direction), frame=\(frame) -> \(spriteName)")
         case .dead:
-            color = NSColor.systemGray
+            spriteName = "tumbler_frame1" // Use tumbler for dead state
         }
 
-        view.wantsLayer = true
-        view.layer?.backgroundColor = color.cgColor
-        view.layer?.borderColor = NSColor.white.cgColor
-        view.layer?.borderWidth = 2.0
-        view.layer?.cornerRadius = 4.0
+        // Try to load the sprite image
+        let spritePath = "./sprites/\(spriteName).png"
+        if let image = NSImage(contentsOfFile: spritePath) {
+            imageView.image = image
+            imageView.imageScaling = .scaleProportionallyUpOrDown
+            print("✅ Created penguin with sprite: \(spriteName) (state=\(penguin.state), frame=\(penguin.currentFrame))")
+        } else {
+            // Fallback to colored rectangle if sprite loading fails
+            print("⚠️ Failed to load sprite: \(spritePath), using fallback")
+            let fallbackView = NSView()
+            fallbackView.wantsLayer = true
 
-        return view
+            let color: NSColor
+            switch penguin.state {
+            case .falling:
+                color = NSColor.systemRed
+            case .walking:
+                color = NSColor.systemBlue
+            case .dead:
+                color = NSColor.systemGray
+            }
+
+            fallbackView.layer?.backgroundColor = color.cgColor
+            fallbackView.layer?.borderColor = NSColor.white.cgColor
+            fallbackView.layer?.borderWidth = 2.0
+            fallbackView.layer?.cornerRadius = 4.0
+
+            return fallbackView
+        }
+
+        return imageView
+    }
+
+    private func updatePenguinSprite(_ penguin: SimplePenguin, penguinView: NSView) {
+        // Only update sprite for NSImageView (not fallback colored views)
+        guard let imageView = penguinView as? NSImageView else { return }
+
+        let spriteName: String
+        switch penguin.state {
+        case .falling:
+            spriteName = "faller_frame1"
+        case .walking:
+            // Choose animated sprite based on direction and frame
+            let direction = penguin.velocity.x >= 0 ? "right" : "left"
+            let frame = penguin.currentFrame % 8 // 8 walking frames
+            spriteName = "walker_\(direction)_\(frame)"
+        case .dead:
+            spriteName = "tumbler_frame1"
+        }
+
+        let spritePath = "./sprites/\(spriteName).png"
+        if let image = NSImage(contentsOfFile: spritePath) {
+            // Always update sprite (with animation)
+            imageView.image = image
+
+            // Debug animation frame updates for walking penguins
+            if penguin.state == .walking && spriteName.contains("walker") {
+                print("🎨 Updated sprite: \(spriteName)")
+            }
+        } else {
+            print("❌ Failed to load sprite: \(spritePath)")
+        }
     }
 
     func cleanup() {

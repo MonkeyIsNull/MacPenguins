@@ -21,19 +21,20 @@ class SimplePenguin {
     var currentSurface: WindowSurface?
 
     // Visual properties
-    var size: CGSize = CGSize(width: 30, height: 30)
     var isVisible: Bool = true
     var penguinType: String
 
+    var size: CGSize = CGSize(width: 30, height: 30)
+
     // Physics constants
     private let gravity: CGFloat = 0.8
-    private let walkSpeed: CGFloat = 4.0
+    private let walkSpeed: CGFloat = 1.0 // Slower walking so we can see animation
     private let maxFallSpeed: CGFloat = 12.0
 
     // Animation (simplified)
     var currentFrame: Int = 0
     var frameCounter: Int = 0
-    private let frameDelay: Int = 10 // Slower animation
+    private let frameDelay: Int = 4 // Faster animation (4 frames = ~0.07 seconds at 60fps)
 
     init(position: CGPoint, penguinType: String = "normal") {
         self.position = position
@@ -46,7 +47,13 @@ class SimplePenguin {
         frameCounter += 1
         if frameCounter >= frameDelay {
             frameCounter = 0
+            let oldFrame = currentFrame
             currentFrame = (currentFrame + 1) % 8
+
+            // Debug animation updates only for walking penguins
+            if state == .walking && oldFrame != currentFrame {
+                print("🎬 Penguin \(id.uuidString.prefix(8)) animation: frame \(oldFrame) -> \(currentFrame)")
+            }
         }
 
         switch state {
@@ -70,20 +77,23 @@ class SimplePenguin {
         // Calculate next position
         let nextY = position.y - velocity.y
 
-        // Check for landing
+        // Use EXACT collision logic from working physics demo
+        let penguinBottomY = position.y - size.height / 2
+        let nextBottomY = nextY - size.height / 2
+
+
         if let surface = collision.checkFallingCollision(
             penguinX: position.x,
-            penguinY: position.y,
-            nextY: nextY
+            penguinY: penguinBottomY,
+            nextY: nextBottomY
         ) {
-            // Land on surface (position.y is center, so adjust for penguin height)
-            position.y = surface.top + size.height / 2
+            // Land on surface - EXACT logic from working demo
+            position.y = surface.top + size.height / 2 // penguin center = surface top + half height
             velocity.y = 0
-            velocity.x = Bool.random() ? walkSpeed : -walkSpeed // Random direction
+            velocity.x = Bool.random() ? walkSpeed : -walkSpeed
             currentSurface = surface
             state = .walking
-
-            print("🐧 Penguin \(id.uuidString.prefix(8)) landed on surface")
+            print("✅ Penguin \(id.uuidString.prefix(8)) landed and switched to WALKING state")
         } else {
             // Continue falling
             position.y = nextY
@@ -98,7 +108,13 @@ class SimplePenguin {
     private func updateWalking(collision: SimpleCollision) {
         guard let surface = currentSurface else {
             state = .falling
+            print("⚠️ Penguin \(id.uuidString.prefix(8)) lost surface, falling")
             return
+        }
+
+        // Debug walking state (occasionally)
+        if frameCounter % 60 == 0 { // Every second
+            print("🚶 Penguin \(id.uuidString.prefix(8)) walking: pos=\(position.x), frame=\(currentFrame)")
         }
 
         // Move horizontally
@@ -113,6 +129,7 @@ class SimplePenguin {
             return
         }
 
+
         // Handle screen wrapping (only for ground level)
         if surface.windowID == nil { // Ground surface
             let screenWidth = NSScreen.main?.frame.width ?? 1440
@@ -123,9 +140,10 @@ class SimplePenguin {
             }
         }
 
-        // Occasionally reverse direction
-        if Int.random(in: 1...300) == 1 {
+        // Occasionally reverse direction (more frequent to keep penguins walking)
+        if Int.random(in: 1...120) == 1 {
             velocity.x = -velocity.x
+            print("🔄 Penguin \(id.uuidString.prefix(8)) changed direction, now going \(velocity.x > 0 ? "right" : "left")")
         }
     }
 
