@@ -47,13 +47,7 @@ class SimplePenguin {
         frameCounter += 1
         if frameCounter >= frameDelay {
             frameCounter = 0
-            let oldFrame = currentFrame
             currentFrame = (currentFrame + 1) % 8
-
-            // Debug animation updates only for walking penguins
-            if state == .walking && oldFrame != currentFrame {
-                print("🎬 Penguin \(id.uuidString.prefix(8)) animation: frame \(oldFrame) -> \(currentFrame)")
-            }
         }
 
         switch state {
@@ -93,7 +87,6 @@ class SimplePenguin {
             velocity.x = Bool.random() ? walkSpeed : -walkSpeed
             currentSurface = surface
             state = .walking
-            print("✅ Penguin \(id.uuidString.prefix(8)) landed and switched to WALKING state")
         } else {
             // Continue falling
             position.y = nextY
@@ -112,10 +105,6 @@ class SimplePenguin {
             return
         }
 
-        // Debug walking state (occasionally)
-        if frameCounter % 60 == 0 { // Every second
-            print("🚶 Penguin \(id.uuidString.prefix(8)) walking: pos=\(position.x), frame=\(currentFrame)")
-        }
 
         // Move horizontally
         position.x += velocity.x
@@ -125,7 +114,6 @@ class SimplePenguin {
             state = .falling
             currentSurface = nil
             velocity.x *= 0.5 // Keep some horizontal momentum
-            print("💨 Penguin \(id.uuidString.prefix(8)) fell off edge")
             return
         }
 
@@ -143,7 +131,6 @@ class SimplePenguin {
         // Occasionally reverse direction (more frequent to keep penguins walking)
         if Int.random(in: 1...120) == 1 {
             velocity.x = -velocity.x
-            print("🔄 Penguin \(id.uuidString.prefix(8)) changed direction, now going \(velocity.x > 0 ? "right" : "left")")
         }
     }
 

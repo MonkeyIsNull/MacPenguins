@@ -100,11 +100,10 @@ class BasicRenderer {
         case .falling:
             spriteName = "faller_frame1"
         case .walking:
-            // Choose animated sprite based on direction and frame
-            let direction = penguin.velocity.x >= 0 ? "right" : "left"
+            // Choose animated sprite based on direction and frame (velocity > 0 = moving right)
+            let direction = penguin.velocity.x > 0 ? "right" : "left"
             let frame = penguin.currentFrame % 8 // 8 walking frames
             spriteName = "walker_\(direction)_\(frame)"
-            print("🎬 Penguin \(penguin.id.uuidString.prefix(8)) walking: direction=\(direction), frame=\(frame) -> \(spriteName)")
         case .dead:
             spriteName = "tumbler_frame1" // Use tumbler for dead state
         }
@@ -114,7 +113,6 @@ class BasicRenderer {
         if let image = NSImage(contentsOfFile: spritePath) {
             imageView.image = image
             imageView.imageScaling = .scaleProportionallyUpOrDown
-            print("✅ Created penguin with sprite: \(spriteName) (state=\(penguin.state), frame=\(penguin.currentFrame))")
         } else {
             // Fallback to colored rectangle if sprite loading fails
             print("⚠️ Failed to load sprite: \(spritePath), using fallback")
@@ -151,8 +149,8 @@ class BasicRenderer {
         case .falling:
             spriteName = "faller_frame1"
         case .walking:
-            // Choose animated sprite based on direction and frame
-            let direction = penguin.velocity.x >= 0 ? "right" : "left"
+            // Choose animated sprite based on direction and frame (velocity > 0 = moving right)
+            let direction = penguin.velocity.x > 0 ? "right" : "left"
             let frame = penguin.currentFrame % 8 // 8 walking frames
             spriteName = "walker_\(direction)_\(frame)"
         case .dead:
@@ -164,10 +162,6 @@ class BasicRenderer {
             // Always update sprite (with animation)
             imageView.image = image
 
-            // Debug animation frame updates for walking penguins
-            if penguin.state == .walking && spriteName.contains("walker") {
-                print("🎨 Updated sprite: \(spriteName)")
-            }
         } else {
             print("❌ Failed to load sprite: \(spritePath)")
         }
