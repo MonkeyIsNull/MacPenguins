@@ -87,6 +87,13 @@ class SimplePenguin {
             velocity.x = Bool.random() ? walkSpeed : -walkSpeed
             currentSurface = surface
             state = .walking
+
+            // Debug what surface we landed on
+            if surface.windowID == nil {
+                print("🌍 Penguin \(id.uuidString.prefix(8)) landed on GROUND")
+            } else {
+                print("🪟 Penguin \(id.uuidString.prefix(8)) landed on WINDOW at Y=\(surface.top)")
+            }
         } else {
             // Continue falling
             position.y = nextY

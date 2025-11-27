@@ -43,10 +43,11 @@ class SimpleCollision {
 
 
 
-                // Temporarily disable window surfaces again - focus on ground animation first
-                // if surface.top > 50 && surface.top < screenHeight - 50 {
-                //     windowSurfaces.append(surface)
-                // }
+                // Re-enable window surfaces - penguins should land on open windows
+                if surface.top > 50 && surface.top < screenHeight - 50 {
+                    windowSurfaces.append(surface)
+                    print("🪟 Added window surface: \(window.ownerName) at Y=\(surface.top) (width: \(surface.right - surface.left))")
+                }
             }
         }
 
