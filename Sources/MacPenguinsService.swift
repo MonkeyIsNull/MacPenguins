@@ -156,17 +156,18 @@ class MacPenguinsService {
     // MARK: - Penguin Management
 
     private func spawnPenguins(count: Int) {
-        let screenWidth = NSScreen.main?.frame.width ?? 1440
-        let screenHeight = NSScreen.main?.frame.height ?? 900
+        let mainScreen = NSScreen.main ?? NSScreen.screens[0]
+        let screenFrame = mainScreen.frame
 
         for _ in 0..<count {
-            let x = CGFloat.random(in: 100...(screenWidth - 100))
-            let y: CGFloat = screenHeight + 50 // Above screen (AppKit coordinates: Y=0 at bottom)
+            // Use actual screen bounds (minX to maxX, not just width)
+            let x = CGFloat.random(in: (screenFrame.minX + 100)...(screenFrame.maxX - 100))
+            let y: CGFloat = screenFrame.maxY + 50 // Above screen's top edge
             let penguin = SimplePenguin(position: CGPoint(x: x, y: y))
             penguins.append(penguin)
         }
 
-        print("Spawned \(count) penguins")
+        print("Spawned \(count) penguins on screen: \(screenFrame)")
     }
 
     private func adjustPenguinCount(to targetCount: Int) {

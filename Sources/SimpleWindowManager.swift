@@ -64,7 +64,8 @@ class SimpleWindowManager {
             window.isOnScreen &&
             window.bounds.width > 50 &&
             window.bounds.height > 50 &&
-            window.level >= 0 && window.level < 20
+            window.level >= 0 && window.level < 20 &&
+            window.ownerName != "MacPenguins" // Don't include our own overlay windows
         }
     }
 

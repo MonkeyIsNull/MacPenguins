@@ -13,37 +13,37 @@ class BasicRenderer {
     func setupOverlayWindows() {
         cleanup()
 
-        // Create one simple overlay window that covers the main screen
-        let mainScreen = NSScreen.main ?? NSScreen.screens[0]
-        let screenFrame = mainScreen.frame
+        // Create overlay windows for ALL screens
+        for (index, screen) in NSScreen.screens.enumerated() {
+            let screenFrame = screen.frame
 
-        let overlayWindow = NSWindow(
-            contentRect: screenFrame,
-            styleMask: [.borderless],
-            backing: .buffered,
-            defer: false
-        )
+            let overlayWindow = NSWindow(
+                contentRect: screenFrame,
+                styleMask: [.borderless],
+                backing: .buffered,
+                defer: false
+            )
 
-        // Configure window to be on top but not interfere
-        overlayWindow.level = NSWindow.Level.floating
-        overlayWindow.backgroundColor = NSColor.clear
-        overlayWindow.isOpaque = false
-        overlayWindow.hasShadow = false
-        overlayWindow.ignoresMouseEvents = true
-        overlayWindow.collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle]
+            // Configure window to be on top but not interfere
+            overlayWindow.level = NSWindow.Level.floating
+            overlayWindow.backgroundColor = NSColor.clear
+            overlayWindow.isOpaque = false
+            overlayWindow.hasShadow = false
+            overlayWindow.ignoresMouseEvents = true
+            overlayWindow.collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle]
 
-        // Make sure the window is visible
-        overlayWindow.makeKeyAndOrderFront(nil)
-        overlayWindow.orderFrontRegardless()
+            // Make sure the window is visible
+            overlayWindow.makeKeyAndOrderFront(nil)
+            overlayWindow.orderFrontRegardless()
 
-        windows.append(overlayWindow)
+            windows.append(overlayWindow)
 
-        print("✅ Created overlay window covering screen: \(screenFrame)")
+            print("✅ Created overlay window \(index) covering screen: \(screenFrame)")
+        }
     }
 
     func updatePenguins(_ penguins: [SimplePenguin]) {
-        guard let mainWindow = windows.first,
-              let contentView = mainWindow.contentView else {
+        guard !windows.isEmpty else {
             return
         }
 
@@ -58,22 +58,33 @@ class BasicRenderer {
 
         // Update or create views for each penguin
         for penguin in penguins where penguin.isVisible {
-            updatePenguinView(penguin, in: contentView)
+            updatePenguinView(penguin)
         }
 
-        // Force a display update
-        contentView.needsDisplay = true
+        // Force a display update on all windows
+        for window in windows {
+            window.contentView?.needsDisplay = true
+        }
     }
 
-    private func updatePenguinView(_ penguin: SimplePenguin, in parentView: NSView) {
+    private func updatePenguinView(_ penguin: SimplePenguin) {
+        // Find which overlay window this penguin should be rendered on
+        let targetWindow = findWindowForPosition(penguin.position)
+        guard let targetContentView = targetWindow?.contentView else { return }
+
         let penguinView: NSView
 
         if let existingView = penguinViews[penguin.id] {
             penguinView = existingView
+            // Move to correct parent if needed
+            if penguinView.superview !== targetContentView {
+                penguinView.removeFromSuperview()
+                targetContentView.addSubview(penguinView)
+            }
         } else {
             // Create a new view for this penguin
             penguinView = createPenguinView(for: penguin)
-            parentView.addSubview(penguinView)
+            targetContentView.addSubview(penguinView)
             penguinViews[penguin.id] = penguinView
         }
 
@@ -81,11 +92,9 @@ class BasicRenderer {
         updatePenguinSprite(penguin, penguinView: penguinView)
 
         // Convert from global coordinates to window-local coordinates
-        // The overlay window starts at screen.minX, but its content view starts at 0
-        guard let window = windows.first else { return }
-        let windowFrame = window.frame
+        let windowFrame = targetWindow?.frame ?? .zero
         let localX = penguin.position.x - windowFrame.minX  // Convert global X to local window X
-        let localY = penguin.position.y  // Y is already in the correct coordinate system
+        let localY = penguin.position.y - windowFrame.minY  // Convert global Y to local window Y
 
         let viewFrame = NSRect(
             x: localX - penguin.size.width / 2,
@@ -95,6 +104,18 @@ class BasicRenderer {
         )
 
         penguinView.frame = viewFrame
+    }
+
+    private func findWindowForPosition(_ position: CGPoint) -> NSWindow? {
+        // Find the overlay window whose screen contains this position
+        for window in windows {
+            let frame = window.frame
+            if position.x >= frame.minX && position.x <= frame.maxX {
+                return window
+            }
+        }
+        // Fallback to first window
+        return windows.first
     }
 
     private func createPenguinView(for penguin: SimplePenguin) -> NSView {

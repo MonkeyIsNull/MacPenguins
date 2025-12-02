@@ -43,11 +43,6 @@ class SimplePenguin {
     }
 
     func update(collision: SimpleCollision) {
-        // Debug penguin state occasionally (reduced frequency)
-        if frameCounter % 600 == 0 { // Every 10 seconds
-            print("🐧 Penguin \(id.uuidString.prefix(8)): state=\(state), pos=(\(Int(position.x)), \(Int(position.y)))")
-        }
-
         // Update animation
         frameCounter += 1
         if frameCounter >= frameDelay {
@@ -96,13 +91,6 @@ class SimplePenguin {
                 velocity.y = 0
                 velocity.x = Bool.random() ? walkSpeed : -walkSpeed
                 state = .walking
-
-                // Debug what surface we landed on (only on significant landings)
-                if surface.windowID == nil {
-                    print("🌍 Penguin \(id.uuidString.prefix(8)) landed on GROUND at X=\(position.x), Y=\(position.y)")
-                } else {
-                    print("🪟 Penguin \(id.uuidString.prefix(8)) landed on WINDOW at X=\(position.x), Y=\(surface.top)")
-                }
             } else {
                 // Already close to surface, just ensure we're in walking state
                 velocity.y = 0
@@ -116,8 +104,9 @@ class SimplePenguin {
         }
 
         // Check screen bounds - if penguin falls below screen, respawn
-        if position.y < -100 {
-            print("⬇️ Penguin \(id.uuidString.prefix(8)) fell below screen at Y=\(position.y), respawning")
+        // Find the lowest screen bottom
+        let lowestScreenBottom = NSScreen.screens.map { $0.frame.minY }.min() ?? 0
+        if position.y < lowestScreenBottom - 100 {
             respawn()
         }
     }
@@ -125,7 +114,6 @@ class SimplePenguin {
     private func updateWalking(collision: SimpleCollision) {
         guard let surface = currentSurface else {
             state = .falling
-            print("⚠️ Penguin \(id.uuidString.prefix(8)) lost surface, falling")
             return
         }
 
@@ -138,23 +126,17 @@ class SimplePenguin {
             state = .falling
             currentSurface = nil
             velocity.x *= 0.5 // Keep some horizontal momentum
-
-            // Only print edge detection for window surfaces, not ground (reduce spam)
-            if surface.windowID != nil {
-                print("🏃 Penguin \(id.uuidString.prefix(8)) walked off WINDOW edge at X=\(position.x)")
-            }
             return
         }
 
 
         // Handle screen wrapping (only for ground level)
         if surface.windowID == nil { // Ground surface
-            let mainScreen = NSScreen.main ?? NSScreen.screens[0]
-            let screenFrame = mainScreen.frame
-            if position.x < screenFrame.minX {
-                position.x = screenFrame.maxX
-            } else if position.x > screenFrame.maxX {
-                position.x = screenFrame.minX
+            // Use the surface bounds for wrapping
+            if position.x < surface.left {
+                position.x = surface.right
+            } else if position.x > surface.right {
+                position.x = surface.left
             }
         }
 
@@ -173,13 +155,12 @@ class SimplePenguin {
         let minX = screenFrame.minX + 100
         let maxX = screenFrame.maxX - 100
         position.x = CGFloat.random(in: minX...maxX)
-        position.y = screenFrame.height + 50 // Above screen (AppKit coordinates: Y=0 at bottom)
+        position.y = screenFrame.maxY + 50 // Above screen's top edge (not just height!)
         velocity = CGPoint.zero
         state = .falling
         currentSurface = nil
         isVisible = true
 
-        print("🔄 Penguin \(id.uuidString.prefix(8)) respawned at X=\(Int(position.x)), Y=\(Int(position.y)) (screen: \(screenFrame))")
     }
 
     func kill() {

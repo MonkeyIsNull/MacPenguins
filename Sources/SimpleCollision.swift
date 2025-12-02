@@ -23,7 +23,7 @@ struct WindowSurface {
 
 class SimpleCollision {
     private var windowSurfaces: [WindowSurface] = []
-    private var groundSurface: WindowSurface?
+    private var groundSurfaces: [WindowSurface] = []  // One ground per screen
     private var hasShownScreenInfo = false
 
     func updateWindows(_ windows: [SimpleWindow]) {
@@ -32,10 +32,7 @@ class SimpleCollision {
         // Debug multi-monitor setup (only show once at startup)
         let allScreens = NSScreen.screens
         if !hasShownScreenInfo && windowSurfaces.isEmpty {
-            print("🖥️ \(allScreens.count) screens detected:")
-            for (i, screen) in allScreens.enumerated() {
-                print("   Screen \(i): \(screen.frame)")
-            }
+            print("Multi-monitor setup: \(allScreens.count) screens detected")
             hasShownScreenInfo = true
         }
 
@@ -43,15 +40,16 @@ class SimpleCollision {
             // Filter reasonable windows
             if window.bounds.width > 50 && window.bounds.height > 30 {
 
-                // Find which screen this window is on
-                let windowScreen = findScreenForWindow(window, allScreens: allScreens)
-                let screenFrame = windowScreen.frame
-
-                // Convert CGWindow coordinates to AppKit coordinates
-                // CGWindow Y=0 is at top of primary display, AppKit Y=0 is at bottom of screen
-                // We need to convert from global CGWindow coords to local screen coords
-                let localWindowY = window.bounds.minY - screenFrame.minY // Convert to screen-relative
-                let appKitY = screenFrame.height - localWindowY // Convert to AppKit coordinates
+                // Convert CGWindow coordinates to global AppKit coordinates
+                // CGWindow: Y=0 at top of the MAIN screen (with menu bar), Y increases downward
+                // AppKit: Y=0 at bottom of the PRIMARY screen (screens[0]), Y increases upward
+                //
+                // To convert CGWindow Y to AppKit Y:
+                // 1. CGWindow Y=0 is at top of main screen (NSScreen.main)
+                // 2. Main screen in AppKit has frame.maxY at its top
+                // 3. AppKit Y = mainScreen.maxY - CGWindow.Y
+                let mainScreen = NSScreen.main ?? NSScreen.screens[0]
+                let appKitY = mainScreen.frame.maxY - window.bounds.minY
 
                 let surface = WindowSurface(
                     left: window.bounds.minX,
@@ -60,13 +58,10 @@ class SimpleCollision {
                     windowID: window.id
                 )
 
-                // Debug coordinate conversion (only show once at startup)
-                if windowSurfaces.count < 3 && !hasShownScreenInfo {
-                    print("🔧 Window \(window.ownerName): X=\(Int(surface.left)), Y=\(Int(surface.top)), W=\(Int(surface.right - surface.left))")
-                }
 
-                // Re-enable window surfaces - penguins should land on open windows
-                if surface.top > 50 && surface.top < screenFrame.height - 50 {
+                // Add window surface if it's in a reasonable range (filter out extreme values)
+                // Use primary screen height as reference
+                if surface.top > -600 && surface.top < 2000 {
                     windowSurfaces.append(surface)
                 }
             }
@@ -75,20 +70,21 @@ class SimpleCollision {
         // Sort by height (lowest first)
         windowSurfaces.sort { $0.top < $1.top }
 
-        // Add simple ground surface
-        let mainScreen = NSScreen.main ?? NSScreen.screens[0]
-        let screenFrame = mainScreen.frame
-        groundSurface = WindowSurface(
-            left: screenFrame.minX,
-            right: screenFrame.maxX,
-            top: 20, // Ground level
-            windowID: nil
-        )
-
-        if !hasShownScreenInfo {
-            print("🌍 Ground surface: X=\(Int(screenFrame.minX)) to \(Int(screenFrame.maxX)), Y=20")
+        // Add ground surfaces for ALL screens
+        groundSurfaces.removeAll()
+        for screen in allScreens {
+            let screenFrame = screen.frame
+            // Ground level is 20 pixels above the screen's bottom edge
+            // In AppKit coords, Y=0 is at bottom, so ground Y = screenFrame.minY + 20
+            let groundY = screenFrame.minY + 20
+            let ground = WindowSurface(
+                left: screenFrame.minX,
+                right: screenFrame.maxX,
+                top: groundY,
+                windowID: nil
+            )
+            groundSurfaces.append(ground)
         }
-
     }
 
     private func findScreenForWindow(_ window: SimpleWindow, allScreens: [NSScreen]) -> NSScreen {
@@ -121,11 +117,12 @@ class SimpleCollision {
             }
         }
 
-        // Check ground collision
-        if let ground = groundSurface,
-           ground.contains(x: penguinX) &&
-           nextY <= ground.top + 5 {
-            return ground
+        // Check ground collision for all screens
+        for ground in groundSurfaces {
+            if ground.contains(x: penguinX) &&
+               nextY <= ground.top + 5 {
+                return ground
+            }
         }
 
         return nil
@@ -140,9 +137,11 @@ class SimpleCollision {
             }
         }
 
-        // Check ground
-        if let ground = groundSurface, ground.contains(x: x) && abs(y - ground.top) < 10 {
-            return ground
+        // Check all ground surfaces
+        for ground in groundSurfaces {
+            if ground.contains(x: x) && abs(y - ground.top) < 10 {
+                return ground
+            }
         }
 
         return nil
@@ -150,9 +149,7 @@ class SimpleCollision {
 
     func getAllSurfaces() -> [WindowSurface] {
         var all = windowSurfaces
-        if let ground = groundSurface {
-            all.append(ground)
-        }
+        all.append(contentsOf: groundSurfaces)
         return all
     }
 }
