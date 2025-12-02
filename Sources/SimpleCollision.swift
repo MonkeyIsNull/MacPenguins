@@ -74,9 +74,9 @@ class SimpleCollision {
         groundSurfaces.removeAll()
         for screen in allScreens {
             let screenFrame = screen.frame
-            // Ground level is 20 pixels above the screen's bottom edge
-            // In AppKit coords, Y=0 is at bottom, so ground Y = screenFrame.minY + 20
-            let groundY = screenFrame.minY + 20
+            // Ground level is just above the screen's bottom edge (dock area)
+            // In AppKit coords, Y=0 is at bottom, so ground Y = screenFrame.minY + small offset
+            let groundY = screenFrame.minY + 5
             let ground = WindowSurface(
                 left: screenFrame.minX,
                 right: screenFrame.maxX,
