@@ -43,6 +43,11 @@ class SimplePenguin {
     }
 
     func update(collision: SimpleCollision) {
+        // Debug penguin state occasionally (reduced frequency)
+        if frameCounter % 600 == 0 { // Every 10 seconds
+            print("🐧 Penguin \(id.uuidString.prefix(8)): state=\(state), pos=(\(Int(position.x)), \(Int(position.y)))")
+        }
+
         // Update animation
         frameCounter += 1
         if frameCounter >= frameDelay {
@@ -82,18 +87,29 @@ class SimplePenguin {
             nextY: nextBottomY
         ) {
             // Land on surface - EXACT logic from working demo
-            position.y = surface.top + size.height / 2 // penguin center = surface top + half height
-            velocity.y = 0
-            velocity.x = Bool.random() ? walkSpeed : -walkSpeed
-            currentSurface = surface
-            state = .walking
+            let newY = surface.top + size.height / 2 // penguin center = surface top + half height
+            let isAlreadyCloseToSurface = abs(position.y - newY) < 1.5
 
-            // Debug what surface we landed on
-            if surface.windowID == nil {
-                print("🌍 Penguin \(id.uuidString.prefix(8)) landed on GROUND")
+            // Only update if significantly different position (avoid jittering)
+            if !isAlreadyCloseToSurface {
+                position.y = newY
+                velocity.y = 0
+                velocity.x = Bool.random() ? walkSpeed : -walkSpeed
+                state = .walking
+
+                // Debug what surface we landed on (only on significant landings)
+                if surface.windowID == nil {
+                    print("🌍 Penguin \(id.uuidString.prefix(8)) landed on GROUND at X=\(position.x), Y=\(position.y)")
+                } else {
+                    print("🪟 Penguin \(id.uuidString.prefix(8)) landed on WINDOW at X=\(position.x), Y=\(surface.top)")
+                }
             } else {
-                print("🪟 Penguin \(id.uuidString.prefix(8)) landed on WINDOW at Y=\(surface.top)")
+                // Already close to surface, just ensure we're in walking state
+                velocity.y = 0
+                state = .walking
             }
+
+            currentSurface = surface
         } else {
             // Continue falling
             position.y = nextY
@@ -101,6 +117,7 @@ class SimplePenguin {
 
         // Check screen bounds - if penguin falls below screen, respawn
         if position.y < -100 {
+            print("⬇️ Penguin \(id.uuidString.prefix(8)) fell below screen at Y=\(position.y), respawning")
             respawn()
         }
     }
@@ -121,17 +138,23 @@ class SimplePenguin {
             state = .falling
             currentSurface = nil
             velocity.x *= 0.5 // Keep some horizontal momentum
+
+            // Only print edge detection for window surfaces, not ground (reduce spam)
+            if surface.windowID != nil {
+                print("🏃 Penguin \(id.uuidString.prefix(8)) walked off WINDOW edge at X=\(position.x)")
+            }
             return
         }
 
 
         // Handle screen wrapping (only for ground level)
         if surface.windowID == nil { // Ground surface
-            let screenWidth = NSScreen.main?.frame.width ?? 1440
-            if position.x < 0 {
-                position.x = screenWidth
-            } else if position.x > screenWidth {
-                position.x = 0
+            let mainScreen = NSScreen.main ?? NSScreen.screens[0]
+            let screenFrame = mainScreen.frame
+            if position.x < screenFrame.minX {
+                position.x = screenFrame.maxX
+            } else if position.x > screenFrame.maxX {
+                position.x = screenFrame.minX
             }
         }
 
@@ -142,17 +165,21 @@ class SimplePenguin {
     }
 
     func respawn() {
-        // Respawn at random position at top of screen
-        let screenWidth = NSScreen.main?.frame.width ?? 1440
-        let screenHeight = NSScreen.main?.frame.height ?? 900
-        position.x = CGFloat.random(in: 100...(screenWidth - 100))
-        position.y = screenHeight + 50 // Above screen (AppKit coordinates: Y=0 at bottom)
+        // Respawn at random position at top of main screen
+        let mainScreen = NSScreen.main ?? NSScreen.screens[0]
+        let screenFrame = mainScreen.frame
+
+        // Use actual screen bounds for spawning
+        let minX = screenFrame.minX + 100
+        let maxX = screenFrame.maxX - 100
+        position.x = CGFloat.random(in: minX...maxX)
+        position.y = screenFrame.height + 50 // Above screen (AppKit coordinates: Y=0 at bottom)
         velocity = CGPoint.zero
         state = .falling
         currentSurface = nil
         isVisible = true
 
-        print("🔄 Penguin \(id.uuidString.prefix(8)) respawned")
+        print("🔄 Penguin \(id.uuidString.prefix(8)) respawned at X=\(Int(position.x)), Y=\(Int(position.y)) (screen: \(screenFrame))")
     }
 
     func kill() {

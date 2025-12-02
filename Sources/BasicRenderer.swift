@@ -80,10 +80,16 @@ class BasicRenderer {
         // Update sprite for state changes AND direction changes
         updatePenguinSprite(penguin, penguinView: penguinView)
 
-        // Update position (SimplePenguin already uses AppKit coordinates)
+        // Convert from global coordinates to window-local coordinates
+        // The overlay window starts at screen.minX, but its content view starts at 0
+        guard let window = windows.first else { return }
+        let windowFrame = window.frame
+        let localX = penguin.position.x - windowFrame.minX  // Convert global X to local window X
+        let localY = penguin.position.y  // Y is already in the correct coordinate system
+
         let viewFrame = NSRect(
-            x: penguin.position.x - penguin.size.width / 2,
-            y: penguin.position.y - penguin.size.height / 2,
+            x: localX - penguin.size.width / 2,
+            y: localY - penguin.size.height / 2,
             width: penguin.size.width,
             height: penguin.size.height
         )
