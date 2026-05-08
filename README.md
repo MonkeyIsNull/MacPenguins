@@ -1,5 +1,7 @@
 # MacPenguins — Penguins for Mac
 
+[![License: GPL v2](https://img.shields.io/badge/License-GPL%20v2-blue.svg)](LICENSE) ![Platform](https://img.shields.io/badge/platform-macOS%2013%2B-lightgrey) ![Swift](https://img.shields.io/badge/swift-5.9-orange)
+
 A macOS port of the classic [XPenguins](http://xpenguins.seul.org/)
 desktop toy. Cartoon penguins fall from the top of your screen, walk
 along the tops of windows, and shuffle around at the bottom of your
