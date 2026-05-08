@@ -1,6 +1,6 @@
 # MacPenguins — Penguins for Mac
 
-A macOS port of the classic [XPenguins](https://en.wikipedia.org/wiki/XPenguins)
+A macOS port of the classic [XPenguins](http://xpenguins.seul.org/)
 desktop toy. Cartoon penguins fall from the top of your screen, walk
 along the tops of windows, and shuffle around at the bottom of your
 display in front of the Dock.
