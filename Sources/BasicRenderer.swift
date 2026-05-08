@@ -9,6 +9,7 @@ class BasicRenderer {
 
     private var windows: [NSWindow] = []
     private var penguinViews: [UUID: NSView] = [:]
+    private var spriteCache: [String: NSImage] = [:]
 
     func setupOverlayWindows() {
         cleanup()
@@ -121,78 +122,89 @@ class BasicRenderer {
 
     private func createPenguinView(for penguin: SimplePenguin) -> NSView {
         let imageView = NSImageView()
-
-        // Load sprite based on penguin state and direction
-        let spriteName: String
-        switch penguin.state {
-        case .falling:
-            spriteName = "faller_frame1"
-        case .walking:
-            // Choose animated sprite based on direction and frame (velocity > 0 = moving right)
-            let direction = penguin.velocity.x > 0 ? "right" : "left"
-            let frame = penguin.currentFrame % 8 // 8 walking frames
-            spriteName = "walker_\(direction)_\(frame)"
-        case .dead:
-            spriteName = "tumbler_frame1" // Use tumbler for dead state
-        }
-
-        // Try to load the sprite image
-        let spritePath = "./sprites/\(spriteName).png"
-        if let image = NSImage(contentsOfFile: spritePath) {
+        if let image = image(for: penguin) {
             imageView.image = image
             imageView.imageScaling = .scaleProportionallyUpOrDown
-        } else {
-            // Fallback to colored rectangle if sprite loading fails
-            print("[WARN] Failed to load sprite: \(spritePath), using fallback")
-            let fallbackView = NSView()
-            fallbackView.wantsLayer = true
-
-            let color: NSColor
-            switch penguin.state {
-            case .falling:
-                color = NSColor.systemRed
-            case .walking:
-                color = NSColor.systemBlue
-            case .dead:
-                color = NSColor.systemGray
-            }
-
-            fallbackView.layer?.backgroundColor = color.cgColor
-            fallbackView.layer?.borderColor = NSColor.white.cgColor
-            fallbackView.layer?.borderWidth = 2.0
-            fallbackView.layer?.cornerRadius = 4.0
-
-            return fallbackView
+            return imageView
         }
 
-        return imageView
+        // Fallback to colored rectangle if sprite loading fails
+        print("[WARN] No sprite for penguin (state=\(penguin.state), type=\(penguin.penguinType)), using fallback")
+        let fallbackView = NSView()
+        fallbackView.wantsLayer = true
+        let color: NSColor
+        switch penguin.state {
+        case .falling: color = NSColor.systemRed
+        case .walking: color = NSColor.systemBlue
+        case .dead:    color = NSColor.systemGray
+        }
+        fallbackView.layer?.backgroundColor = color.cgColor
+        fallbackView.layer?.borderColor = NSColor.white.cgColor
+        fallbackView.layer?.borderWidth = 2.0
+        fallbackView.layer?.cornerRadius = 4.0
+        return fallbackView
     }
 
     private func updatePenguinSprite(_ penguin: SimplePenguin, penguinView: NSView) {
         // Only update sprite for NSImageView (not fallback colored views)
         guard let imageView = penguinView as? NSImageView else { return }
+        if let image = image(for: penguin) {
+            imageView.image = image
+        }
+    }
+
+    // Resolves the sprite for a given penguin's state/type/direction/frame, with caching.
+    // Skateboarder walkers come from a 30x60 strip in the Themes folder (top half = right,
+    // bottom half = left); we crop and cache the two halves on first use.
+    private func image(for penguin: SimplePenguin) -> NSImage? {
+        let direction = penguin.velocity.x > 0 ? "right" : "left"
+
+        if penguin.penguinType == "skateboarder" && penguin.state == .walking {
+            let key = "skateboarder_walker_\(direction)"
+            if let cached = spriteCache[key] { return cached }
+            if let split = loadSkateboarderWalker() {
+                spriteCache["skateboarder_walker_right"] = split.right
+                spriteCache["skateboarder_walker_left"] = split.left
+                return spriteCache[key]
+            }
+            return nil
+        }
 
         let spriteName: String
         switch penguin.state {
-        case .falling:
-            spriteName = "faller_frame1"
+        case .falling: spriteName = "faller_frame1"
         case .walking:
-            // Choose animated sprite based on direction and frame (velocity > 0 = moving right)
-            let direction = penguin.velocity.x > 0 ? "right" : "left"
-            let frame = penguin.currentFrame % 8 // 8 walking frames
+            let frame = penguin.currentFrame % 8
             spriteName = "walker_\(direction)_\(frame)"
-        case .dead:
-            spriteName = "tumbler_frame1"
+        case .dead: spriteName = "tumbler_frame1"
         }
 
-        let spritePath = "./sprites/\(spriteName).png"
-        if let image = NSImage(contentsOfFile: spritePath) {
-            // Always update sprite (with animation)
-            imageView.image = image
-
-        } else {
-            print("[ERR] Failed to load sprite: \(spritePath)")
+        if let cached = spriteCache[spriteName] { return cached }
+        let path = "./sprites/\(spriteName).png"
+        guard let img = NSImage(contentsOfFile: path) else {
+            print("[ERR] Failed to load sprite: \(path)")
+            return nil
         }
+        spriteCache[spriteName] = img
+        return img
+    }
+
+    private func loadSkateboarderWalker() -> (right: NSImage, left: NSImage)? {
+        let path = "./MacPenguins/Themes/Penguins/skateboarder_walker.png"
+        guard let strip = NSImage(contentsOfFile: path),
+              let cg = strip.cgImage(forProposedRect: nil, context: nil, hints: nil) else {
+            print("[ERR] Failed to load skateboarder strip: \(path)")
+            return nil
+        }
+        let frameW = cg.width
+        let frameH = cg.height / 2 // 2 directions stacked vertically
+        guard let topCG = cg.cropping(to: CGRect(x: 0, y: 0, width: frameW, height: frameH)),
+              let bottomCG = cg.cropping(to: CGRect(x: 0, y: frameH, width: frameW, height: frameH)) else {
+            return nil
+        }
+        let size = NSSize(width: frameW, height: frameH)
+        return (right: NSImage(cgImage: topCG, size: size),
+                left:  NSImage(cgImage: bottomCG, size: size))
     }
 
     func cleanup() {

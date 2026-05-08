@@ -28,8 +28,12 @@ class SimplePenguin {
 
     // Physics constants
     private let gravity: CGFloat = 0.8
-    private let walkSpeed: CGFloat = 1.0 // Slower walking so we can see animation
     private let maxFallSpeed: CGFloat = 12.0
+    private var walkSpeed: CGFloat {
+        // Skateboarder is faster than the normal walker (matches the original
+        // xpenguins theme: skateboarder speed 6 vs normal speed 4).
+        penguinType == "skateboarder" ? 2.0 : 1.0
+    }
 
     // Animation (simplified)
     var currentFrame: Int = 0

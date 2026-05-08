@@ -159,11 +159,13 @@ class MacPenguinsService {
         let mainScreen = NSScreen.main ?? NSScreen.screens[0]
         let screenFrame = mainScreen.frame
 
-        for _ in 0..<count {
-            // Use actual screen bounds (minX to maxX, not just width)
+        // Mix penguin types using the original Penguins theme ratio (5 normal : 3 skateboarder).
+        let skateboarderShare = 3.0 / 8.0
+        for i in 0..<count {
             let x = CGFloat.random(in: (screenFrame.minX + 100)...(screenFrame.maxX - 100))
             let y: CGFloat = screenFrame.maxY + 50 // Above screen's top edge
-            let penguin = SimplePenguin(position: CGPoint(x: x, y: y))
+            let type = (Double(i) / Double(max(count, 1))) < skateboarderShare ? "skateboarder" : "normal"
+            let penguin = SimplePenguin(position: CGPoint(x: x, y: y), penguinType: type)
             penguins.append(penguin)
         }
 
