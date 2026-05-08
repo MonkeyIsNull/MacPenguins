@@ -20,7 +20,7 @@ display in front of the Dock.
 ## Run
 
 ```bash
-git clone <this-repo>
+git clone https://github.com/MonkeyIsNull/MacPenguins
 cd MacPenguins
 ./run_macpenguins.sh
 ```
