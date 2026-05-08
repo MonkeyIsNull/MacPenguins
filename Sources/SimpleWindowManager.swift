@@ -79,6 +79,57 @@ class SimpleWindowManager {
         return NSScreen.screens.map { $0.frame }
     }
 
+    // Returns the visible Dock's bounds in CGWindow coordinates (Y measured from
+    // the top of the main screen, increasing downward). The Dock process owns
+    // many private windows; we identify the visible bar by matching position:
+    // its bottom edge sits at the bottom of the main screen, and its height
+    // matches the inset that visibleFrame leaves at the bottom of the screen.
+    private var hasLoggedDockDetection = false
+    func getDockBounds() -> CGRect? {
+        let mainScreen = NSScreen.main ?? NSScreen.screens[0]
+        let dockBottomInset = mainScreen.visibleFrame.minY - mainScreen.frame.minY
+        let screenHeightCG = mainScreen.frame.height
+
+        // No bottom Dock => either auto-hidden or on a side. Bail out.
+        guard dockBottomInset > 5 else {
+            if !hasLoggedDockDetection {
+                print("Dock detection: no bottom Dock inset detected (auto-hidden or side Dock)")
+                hasLoggedDockDetection = true
+            }
+            return nil
+        }
+
+        guard let windowList = CGWindowListCopyWindowInfo([.optionOnScreenOnly], kCGNullWindowID) as? [[String: Any]] else {
+            return nil
+        }
+
+        var allDockWindows: [CGRect] = []
+        for windowDict in windowList {
+            let ownerName = windowDict[kCGWindowOwnerName as String] as? String ?? ""
+            guard ownerName == "Dock" else { continue }
+            guard let boundsDict = windowDict[kCGWindowBounds as String] as? [String: Any] else { continue }
+            var bounds = CGRect.zero
+            CGRectMakeWithDictionaryRepresentation(boundsDict as CFDictionary, &bounds)
+            allDockWindows.append(bounds)
+        }
+
+        // The visible Dock bar: its bottom edge (CG maxY) sits at the screen bottom,
+        // its height is around the bottom inset, and its width is meaningful.
+        let visibleBar = allDockWindows.first { bounds in
+            abs(bounds.maxY - screenHeightCG) < 5 &&
+            bounds.height >= dockBottomInset - 10 &&
+            bounds.height <= dockBottomInset + 40 &&
+            bounds.width > 100
+        }
+
+        if !hasLoggedDockDetection {
+            print("Dock detection: \(allDockWindows.count) Dock-owned windows, expected bottom inset=\(dockBottomInset), picked=\(String(describing: visibleBar))")
+            hasLoggedDockDetection = true
+        }
+
+        return visibleBar
+    }
+
     func getCombinedDisplayBounds() -> CGRect {
         let screens = NSScreen.screens
         guard !screens.isEmpty else { return CGRect.zero }

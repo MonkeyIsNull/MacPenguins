@@ -114,17 +114,18 @@ class MacPenguinsService {
 
     private func update() {
         if debugCounter == 0 {
-            print("🔄 First update() call - main loop is running!")
+            print("First update() call - main loop is running!")
         }
 
-        // Update collision data with current windows
+        // Update collision data with current windows + Dock bounds
         let windows = windowManager.getCurrentSpaceWindows()
-        collision.updateWindows(windows)
+        let dockBounds = windowManager.getDockBounds()
+        collision.updateWindows(windows, dockBounds: dockBounds)
 
         // Debug output
         debugCounter += 1
         if debugCounter < 5 || debugCounter % 180 == 0 {
-            print("🪟 Update \(debugCounter): \(windows.count) windows, \(penguins.count) penguins")
+            print("Update \(debugCounter): \(windows.count) windows, \(penguins.count) penguins")
         }
 
         // Update all penguins with simple physics

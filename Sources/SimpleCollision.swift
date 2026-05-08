@@ -26,7 +26,7 @@ class SimpleCollision {
     private var groundSurfaces: [WindowSurface] = []  // One ground per screen
     private var hasShownScreenInfo = false
 
-    func updateWindows(_ windows: [SimpleWindow]) {
+    func updateWindows(_ windows: [SimpleWindow], dockBounds: CGRect? = nil) {
         windowSurfaces.removeAll()
 
         // Debug multi-monitor setup (only show once at startup)
@@ -74,16 +74,29 @@ class SimpleCollision {
         groundSurfaces.removeAll()
         for screen in allScreens {
             let screenFrame = screen.frame
-            // Ground level is just above the screen's bottom edge (dock area)
-            // In AppKit coords, Y=0 is at bottom, so ground Y = screenFrame.minY + small offset
-            let groundY = screenFrame.minY + 5
+            // Full-width baseline: catches penguins falling past either side of the Dock.
             let ground = WindowSurface(
                 left: screenFrame.minX,
                 right: screenFrame.maxX,
-                top: groundY,
+                top: screenFrame.minY,
                 windowID: nil
             )
             groundSurfaces.append(ground)
+        }
+
+        // Add the Dock as a narrow surface at its actual width, if we got bounds.
+        // CGWindow Y is measured from the top of the main screen downward; convert
+        // to AppKit (origin bottom-left, Y up).
+        if let dock = dockBounds {
+            let mainScreen = NSScreen.main ?? NSScreen.screens[0]
+            let dockTopAppKit = mainScreen.frame.maxY - dock.minY
+            let dockSurface = WindowSurface(
+                left: dock.minX,
+                right: dock.maxX,
+                top: dockTopAppKit,
+                windowID: nil
+            )
+            groundSurfaces.append(dockSurface)
         }
     }
 

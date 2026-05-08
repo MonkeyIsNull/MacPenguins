@@ -14,6 +14,17 @@ let package = Package(
             name: "MacPenguins",
             dependencies: [],
             path: "Sources",
+            exclude: [
+                "AnimationRenderer.swift",
+                "SimpleRenderer.swift",
+                "WindowDetector.m",
+                "WindowManager.swift",
+                "Penguin.swift",
+                "ThemeManager.swift",
+                "AppDelegate.swift",
+                "CollisionDetector.swift",
+                "PenguinEngine.swift"
+            ],
             sources: [
                 "main.swift",
                 "LegacyCompat.swift",

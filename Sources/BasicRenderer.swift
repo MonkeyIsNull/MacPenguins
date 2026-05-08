@@ -24,8 +24,9 @@ class BasicRenderer {
                 defer: false
             )
 
-            // Configure window to be on top but not interfere
-            overlayWindow.level = NSWindow.Level.floating
+            // Configure window to be on top but not interfere.
+            // .popUpMenu (101) sits above the Dock (level 20) so penguins render in front of it.
+            overlayWindow.level = NSWindow.Level.popUpMenu
             overlayWindow.backgroundColor = NSColor.clear
             overlayWindow.isOpaque = false
             overlayWindow.hasShadow = false
@@ -38,7 +39,7 @@ class BasicRenderer {
 
             windows.append(overlayWindow)
 
-            print("✅ Created overlay window \(index) covering screen: \(screenFrame)")
+            print("Created overlay window \(index) covering screen: \(screenFrame)")
         }
     }
 
@@ -142,7 +143,7 @@ class BasicRenderer {
             imageView.imageScaling = .scaleProportionallyUpOrDown
         } else {
             // Fallback to colored rectangle if sprite loading fails
-            print("⚠️ Failed to load sprite: \(spritePath), using fallback")
+            print("[WARN] Failed to load sprite: \(spritePath), using fallback")
             let fallbackView = NSView()
             fallbackView.wantsLayer = true
 
@@ -190,7 +191,7 @@ class BasicRenderer {
             imageView.image = image
 
         } else {
-            print("❌ Failed to load sprite: \(spritePath)")
+            print("[ERR] Failed to load sprite: \(spritePath)")
         }
     }
 
