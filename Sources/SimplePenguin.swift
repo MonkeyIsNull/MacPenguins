@@ -112,16 +112,31 @@ class SimplePenguin {
     }
 
     private func updateWalking(collision: SimpleCollision) {
-        guard let surface = currentSurface else {
+        guard let cached = currentSurface else {
             state = .falling
             return
         }
 
+        // Re-resolve window-backed surfaces every frame so penguins ride windows
+        // as they move/resize. If the window is gone, fall.
+        let surface: WindowSurface
+        if let id = cached.windowID {
+            guard let live = collision.getSurface(forWindowID: id) else {
+                state = .falling
+                currentSurface = nil
+                return
+            }
+            surface = live
+            position.y = surface.top + size.height / 2
+            currentSurface = surface
+        } else {
+            surface = cached
+        }
 
         // Move horizontally
         position.x += velocity.x
 
-        // Check if we walked off the edge
+        // Check if we walked off the edge (or the window narrowed underfoot)
         if !surface.contains(x: position.x) {
             state = .falling
             currentSurface = nil
@@ -129,10 +144,8 @@ class SimplePenguin {
             return
         }
 
-
         // Handle screen wrapping (only for ground level)
         if surface.windowID == nil { // Ground surface
-            // Use the surface bounds for wrapping
             if position.x < surface.left {
                 position.x = surface.right
             } else if position.x > surface.right {

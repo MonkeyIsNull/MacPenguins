@@ -26,7 +26,7 @@ class SimpleCollision {
     private var groundSurfaces: [WindowSurface] = []  // One ground per screen
     private var hasShownScreenInfo = false
 
-    func updateWindows(_ windows: [SimpleWindow], dockBounds: CGRect? = nil) {
+    func updateWindows(_ windows: [SimpleWindow]) {
         windowSurfaces.removeAll()
 
         // Debug multi-monitor setup (only show once at startup)
@@ -74,7 +74,8 @@ class SimpleCollision {
         groundSurfaces.removeAll()
         for screen in allScreens {
             let screenFrame = screen.frame
-            // Full-width baseline: catches penguins falling past either side of the Dock.
+            // Ground at the very bottom of the screen. Penguins render in front of
+            // the Dock because the overlay window sits above kCGDockWindowLevel.
             let ground = WindowSurface(
                 left: screenFrame.minX,
                 right: screenFrame.maxX,
@@ -82,21 +83,6 @@ class SimpleCollision {
                 windowID: nil
             )
             groundSurfaces.append(ground)
-        }
-
-        // Add the Dock as a narrow surface at its actual width, if we got bounds.
-        // CGWindow Y is measured from the top of the main screen downward; convert
-        // to AppKit (origin bottom-left, Y up).
-        if let dock = dockBounds {
-            let mainScreen = NSScreen.main ?? NSScreen.screens[0]
-            let dockTopAppKit = mainScreen.frame.maxY - dock.minY
-            let dockSurface = WindowSurface(
-                left: dock.minX,
-                right: dock.maxX,
-                top: dockTopAppKit,
-                windowID: nil
-            )
-            groundSurfaces.append(dockSurface)
         }
     }
 
@@ -141,6 +127,12 @@ class SimpleCollision {
         return nil
     }
 
+
+    // Look up the live surface for a window by its CGWindowID. Returns nil if
+    // the window has closed, minimized, or fallen out of the tracked set.
+    func getSurface(forWindowID id: CGWindowID) -> WindowSurface? {
+        return windowSurfaces.first(where: { $0.windowID == id })
+    }
 
     func getSurfaceForWalking(at x: CGFloat, y: CGFloat) -> WindowSurface? {
         // Find the surface we're currently on

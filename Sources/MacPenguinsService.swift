@@ -117,10 +117,9 @@ class MacPenguinsService {
             print("First update() call - main loop is running!")
         }
 
-        // Update collision data with current windows + Dock bounds
+        // Update collision data with current windows
         let windows = windowManager.getCurrentSpaceWindows()
-        let dockBounds = windowManager.getDockBounds()
-        collision.updateWindows(windows, dockBounds: dockBounds)
+        collision.updateWindows(windows)
 
         // Debug output
         debugCounter += 1
