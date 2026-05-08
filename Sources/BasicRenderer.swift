@@ -134,9 +134,10 @@ class BasicRenderer {
         fallbackView.wantsLayer = true
         let color: NSColor
         switch penguin.state {
-        case .falling: color = NSColor.systemRed
-        case .walking: color = NSColor.systemBlue
-        case .dead:    color = NSColor.systemGray
+        case .falling:  color = NSColor.systemRed
+        case .walking:  color = NSColor.systemBlue
+        case .tumbling: color = NSColor.systemOrange
+        case .dead:     color = NSColor.systemGray
         }
         fallbackView.layer?.backgroundColor = color.cgColor
         fallbackView.layer?.borderColor = NSColor.white.cgColor
@@ -172,11 +173,12 @@ class BasicRenderer {
 
         let spriteName: String
         switch penguin.state {
-        case .falling: spriteName = "faller_frame1"
+        case .falling:  spriteName = "faller_frame1"
         case .walking:
             let frame = penguin.currentFrame % 8
             spriteName = "walker_\(direction)_\(frame)"
-        case .dead: spriteName = "tumbler_frame1"
+        case .tumbling: spriteName = "tumbler_frame1"
+        case .dead:     spriteName = "tumbler_frame1"
         }
 
         if let cached = spriteCache[spriteName] { return cached }

@@ -7,8 +7,9 @@ import CoreGraphics
 import AppKit
 
 enum SimplePenguinState {
-    case falling
+    case falling   // gentle drop from above the screen
     case walking
+    case tumbling  // walked off a window edge: stronger gravity, keeps horizontal momentum
     case dead
 }
 
@@ -60,6 +61,9 @@ class SimplePenguin {
 
         case .walking:
             updateWalking(collision: collision)
+
+        case .tumbling:
+            updateTumbling(collision: collision)
 
         case .dead:
             // Dead penguins don't move
@@ -115,6 +119,42 @@ class SimplePenguin {
         }
     }
 
+    private func updateTumbling(collision: SimpleCollision) {
+        // Stronger acceleration and a lower terminal velocity than the gentle
+        // .falling state, matching the original xpenguins tumbler config
+        // (acceleration 1, terminal_velocity 8).
+        velocity.y += 1.0
+        velocity.y = min(velocity.y, 8.0)
+
+        let nextX = position.x + velocity.x
+        let nextY = position.y - velocity.y
+        let penguinBottomY = position.y - size.height / 2
+        let nextBottomY = nextY - size.height / 2
+
+        if let surface = collision.checkFallingCollision(
+            penguinX: nextX,
+            penguinY: penguinBottomY,
+            nextY: nextBottomY
+        ) {
+            // Land and resume walking
+            position.x = nextX
+            position.y = surface.top + size.height / 2
+            velocity.y = 0
+            velocity.x = Bool.random() ? walkSpeed : -walkSpeed
+            state = .walking
+            currentSurface = surface
+        } else {
+            position.x = nextX
+            position.y = nextY
+        }
+
+        // Respawn if the tumble took us off the bottom of the world
+        let lowestScreenBottom = NSScreen.screens.map { $0.frame.minY }.min() ?? 0
+        if position.y < lowestScreenBottom - 100 {
+            respawn()
+        }
+    }
+
     private func updateWalking(collision: SimpleCollision) {
         guard let cached = currentSurface else {
             state = .falling
@@ -140,21 +180,19 @@ class SimplePenguin {
         // Move horizontally
         position.x += velocity.x
 
-        // Check if we walked off the edge (or the window narrowed underfoot)
+        // Walked off the surface? Behavior depends on what surface it was:
+        //   - Window edge: tumble off with horizontal momentum (cartwheel arc).
+        //   - Screen-bottom ground edge: fall straight off the screen, respawn
+        //     from the top — keeps the population cycling instead of clumping.
         if !surface.contains(x: position.x) {
-            state = .falling
-            currentSurface = nil
-            velocity.x *= 0.5 // Keep some horizontal momentum
-            return
-        }
-
-        // Handle screen wrapping (only for ground level)
-        if surface.windowID == nil { // Ground surface
-            if position.x < surface.left {
-                position.x = surface.right
-            } else if position.x > surface.right {
-                position.x = surface.left
+            if surface.windowID != nil {
+                state = .tumbling
+            } else {
+                velocity.x = 0
+                state = .falling
             }
+            currentSurface = nil
+            return
         }
 
         // Occasionally reverse direction (more frequent to keep penguins walking)
