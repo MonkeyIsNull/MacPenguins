@@ -10,6 +10,7 @@ enum SimplePenguinState {
     case falling   // gentle drop from above the screen
     case walking
     case tumbling  // walked off a window edge: stronger gravity, keeps horizontal momentum
+    case acting    // idle action (e.g., reading a book) — paused on the current surface
     case dead
 }
 
@@ -41,6 +42,10 @@ class SimplePenguin {
     var frameCounter: Int = 0
     private let frameDelay: Int = 4 // Faster animation (4 frames = ~0.07 seconds at 60fps)
 
+    // Action state (e.g., reading): how many update ticks remain before the
+    // penguin resumes walking. Only meaningful while state == .acting.
+    var actionTicks: Int = 0
+
     init(position: CGPoint, penguinType: String = "normal") {
         self.position = position
         self.penguinType = penguinType
@@ -64,6 +69,9 @@ class SimplePenguin {
 
         case .tumbling:
             updateTumbling(collision: collision)
+
+        case .acting:
+            updateActing(collision: collision)
 
         case .dead:
             // Dead penguins don't move
@@ -195,9 +203,61 @@ class SimplePenguin {
             return
         }
 
+        // Occasionally pause to read a book. Normal penguins only — skateboarders
+        // don't have a digger sprite shipped, and a stationary skateboarder looks
+        // wrong anyway.
+        if penguinType == "normal" && Int.random(in: 1...600) == 1 {
+            state = .acting
+            velocity.x = 0
+            actionTicks = 200 // ~3.3s at 60fps
+            currentFrame = 0
+            return
+        }
+
         // Occasionally reverse direction (more frequent to keep penguins walking)
         if Int.random(in: 1...120) == 1 {
             velocity.x = -velocity.x
+        }
+    }
+
+    private func updateActing(collision: SimpleCollision) {
+        // Re-resolve window-backed surfaces so a reader rides a moving window.
+        guard let cached = currentSurface else {
+            state = .falling
+            return
+        }
+        let surface: WindowSurface
+        if let id = cached.windowID {
+            guard let live = collision.getSurface(forWindowID: id) else {
+                // Window vanished mid-read — drop into a fall.
+                state = .falling
+                currentSurface = nil
+                return
+            }
+            surface = live
+            position.y = surface.top + size.height / 2
+            currentSurface = surface
+        } else {
+            surface = cached
+        }
+
+        // If the window narrowed underfoot, treat like walking off it.
+        if !surface.contains(x: position.x) {
+            if surface.windowID != nil {
+                state = .tumbling
+            } else {
+                velocity.x = 0
+                state = .falling
+            }
+            currentSurface = nil
+            return
+        }
+
+        actionTicks -= 1
+        if actionTicks <= 0 {
+            state = .walking
+            velocity.x = Bool.random() ? walkSpeed : -walkSpeed
+            currentFrame = 0
         }
     }
 

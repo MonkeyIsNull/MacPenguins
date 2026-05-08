@@ -9,15 +9,19 @@ display in front of the Dock.
 
 ![MacPenguins in action](PengScreenie.png)
 
-> **Status:** early port. Walking and falling work; a skateboarder
-> variant zips around faster. Many of the original states (climbing,
-> tumbling, floating, dying, idle actions) are not yet implemented —
-> see [Roadmap](#roadmap).
+> **Status:** early port. Walking, falling, tumbling, and a reading
+> idle action work; a skateboarder variant zips around faster. Several
+> of the original states (climbing, floating, dying) are not yet
+> implemented — see [Roadmap](#roadmap).
 
 ## Requirements
 
-- macOS 13 (Ventura) or later
-- Swift toolchain (Xcode or `xcode-select --install`)
+- **Requires:** macOS 13 (Ventura) or later — enforced as the SwiftPM
+  deployment target in `Package.swift`.
+- **Tested on:** macOS 15.7.2 (Sequoia), Apple Silicon. Older versions
+  should work API-wise (we use only long-stable AppKit / CGWindow
+  calls) but haven't been verified — reports welcome.
+- Swift toolchain (Xcode or `xcode-select --install`).
 
 ## Run
 
@@ -40,6 +44,9 @@ above the Dock.
 - Penguins land on the top edge of any open window and walk along it
 - Penguins ride windows as you resize them, and fall off if you shrink
   a window past their feet or close it
+- Tumbling: walking off a window's edge produces a cartwheel arc with
+  the penguin's horizontal momentum carried into the fall
+- Idle reading: normal penguins occasionally pause to read a book
 - Multi-monitor (the screen-bottom ground is per-screen)
 - A skateboarder variant (~3/8 of penguins) walks faster
 
@@ -47,12 +54,11 @@ above the Dock.
 
 These exist in the original XPenguins but aren't implemented yet:
 
-- Tumblers (cartwheel fall when walking off a window edge)
 - Climbers (scaling window sides / screen edges)
 - Floaters (balloon-style upward drift)
 - Death animations: explosion, splatted, squashed, zapped
 - Angel ascent before respawn
-- Idle actions (reader, digger)
+- Digger idle action (skateboarder counterpart to the reader)
 - Click-to-zap interaction
 - Side-mounted Dock awareness
 
@@ -75,14 +81,32 @@ you prefer; the SwiftPM `Package.swift` is the canonical build target.
 
 ## Roadmap
 
-Rough order of attack for the missing pieces:
+Rough order of attack for the remaining pieces:
 
-1. Tumblers — when a walker steps off a window's right/left edge
-2. Climbers — when a walker hits a vertical obstacle
-3. Death animations + angel respawn cycle
-4. Idle actions (reader, digger)
-5. Click-to-zap
+1. Climbers — when a walker hits a vertical obstacle, scale the window's side
+2. Death animations + angel respawn cycle (explosion / splatted / squashed / zapped → angel → faller)
+3. Floaters (balloon-style upward drift, used after head-bumping)
+4. Digger idle action (skateboarder pauses to dig — counterpart to the reader)
+5. Click-to-zap interaction
 6. Side-Dock and notch handling
+
+Done so far: tumblers (walking off a window edge), reader idle action,
+and the skateboarder variant.
+
+## Contributing
+
+PRs welcome — bug fixes, items off the [roadmap](#roadmap), new themes,
+or sprite improvements. Match the existing code style, keep changes
+focused, and verify visibly that your change works. No tests required;
+this is a desktop toy.
+
+By submitting a PR you agree your contribution ships under GPL v2,
+matching the rest of the project.
+
+Bug reports: please include your macOS version and a short repro.
+
+New themes or sprites go under `MacPenguins/Themes/<ThemeName>/` —
+please credit any artwork you didn't draw yourself.
 
 ## Credits
 
