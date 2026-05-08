@@ -5,6 +5,8 @@ desktop toy. Cartoon penguins fall from the top of your screen, walk
 along the tops of windows, and shuffle around at the bottom of your
 display in front of the Dock.
 
+![MacPenguins in action](PengScreenie.png)
+
 > **Status:** early port. Walking and falling work; a skateboarder
 > variant zips around faster. Many of the original states (climbing,
 > tumbling, floating, dying, idle actions) are not yet implemented —
