@@ -53,11 +53,13 @@ class SimplePenguin {
     }
 
     func update(collision: SimpleCollision) {
-        // Update animation
+        // Update animation. currentFrame increments without modulo here — each
+        // renderer path takes its own modulo (walker % 8, reader % 12, etc.) so
+        // animations with different frame counts all play to completion.
         frameCounter += 1
         if frameCounter >= frameDelay {
             frameCounter = 0
-            currentFrame = (currentFrame + 1) % 8
+            currentFrame += 1
         }
 
         switch state {
