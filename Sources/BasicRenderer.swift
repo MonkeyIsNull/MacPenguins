@@ -134,9 +134,11 @@ class BasicRenderer {
         fallbackView.wantsLayer = true
         let color: NSColor
         switch penguin.state {
-        case .falling: color = NSColor.systemRed
-        case .walking: color = NSColor.systemBlue
-        case .dead:    color = NSColor.systemGray
+        case .falling:  color = NSColor.systemRed
+        case .walking:  color = NSColor.systemBlue
+        case .tumbling: color = NSColor.systemOrange
+        case .acting:   color = NSColor.systemGreen
+        case .dead:     color = NSColor.systemGray
         }
         fallbackView.layer?.backgroundColor = color.cgColor
         fallbackView.layer?.borderColor = NSColor.white.cgColor
@@ -155,7 +157,8 @@ class BasicRenderer {
 
     // Resolves the sprite for a given penguin's state/type/direction/frame, with caching.
     // Skateboarder walkers come from a 30x60 strip in the Themes folder (top half = right,
-    // bottom half = left); we crop and cache the two halves on first use.
+    // bottom half = left); the reader is a 360x30 12-frame strip. Both are sliced and
+    // cached on first use.
     private func image(for penguin: SimplePenguin) -> NSImage? {
         let direction = penguin.velocity.x > 0 ? "right" : "left"
 
@@ -170,13 +173,26 @@ class BasicRenderer {
             return nil
         }
 
+        if penguin.state == .acting && penguin.penguinType == "normal" {
+            // Reader animates through 12 frames at the same cadence as walker.
+            let frame = penguin.currentFrame % 12
+            let key = "reader_\(frame)"
+            if let cached = spriteCache[key] { return cached }
+            if loadReaderFrames() {
+                return spriteCache[key]
+            }
+            return nil
+        }
+
         let spriteName: String
         switch penguin.state {
-        case .falling: spriteName = "faller_frame1"
+        case .falling:  spriteName = "faller_frame1"
         case .walking:
             let frame = penguin.currentFrame % 8
             spriteName = "walker_\(direction)_\(frame)"
-        case .dead: spriteName = "tumbler_frame1"
+        case .tumbling: spriteName = "tumbler_frame1"
+        case .acting:   spriteName = "walker_\(direction)_0" // skateboarder fallback
+        case .dead:     spriteName = "tumbler_frame1"
         }
 
         if let cached = spriteCache[spriteName] { return cached }
@@ -187,6 +203,27 @@ class BasicRenderer {
         }
         spriteCache[spriteName] = img
         return img
+    }
+
+    @discardableResult
+    private func loadReaderFrames() -> Bool {
+        let path = "./MacPenguins/Themes/Penguins/normal_reader.png"
+        guard let strip = NSImage(contentsOfFile: path),
+              let cg = strip.cgImage(forProposedRect: nil, context: nil, hints: nil) else {
+            print("[ERR] Failed to load reader strip: \(path)")
+            return false
+        }
+        let frameCount = 12
+        let frameW = cg.width / frameCount
+        let frameH = cg.height
+        let size = NSSize(width: frameW, height: frameH)
+        for i in 0..<frameCount {
+            guard let frameCG = cg.cropping(to: CGRect(x: i * frameW, y: 0, width: frameW, height: frameH)) else {
+                continue
+            }
+            spriteCache["reader_\(i)"] = NSImage(cgImage: frameCG, size: size)
+        }
+        return true
     }
 
     private func loadSkateboarderWalker() -> (right: NSImage, left: NSImage)? {

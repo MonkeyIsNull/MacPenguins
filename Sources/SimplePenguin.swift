@@ -7,8 +7,10 @@ import CoreGraphics
 import AppKit
 
 enum SimplePenguinState {
-    case falling
+    case falling   // gentle drop from above the screen
     case walking
+    case tumbling  // walked off a window edge: stronger gravity, keeps horizontal momentum
+    case acting    // idle action (e.g., reading a book) — paused on the current surface
     case dead
 }
 
@@ -40,6 +42,10 @@ class SimplePenguin {
     var frameCounter: Int = 0
     private let frameDelay: Int = 4 // Faster animation (4 frames = ~0.07 seconds at 60fps)
 
+    // Action state (e.g., reading): how many update ticks remain before the
+    // penguin resumes walking. Only meaningful while state == .acting.
+    var actionTicks: Int = 0
+
     init(position: CGPoint, penguinType: String = "normal") {
         self.position = position
         self.penguinType = penguinType
@@ -47,11 +53,13 @@ class SimplePenguin {
     }
 
     func update(collision: SimpleCollision) {
-        // Update animation
+        // Update animation. currentFrame increments without modulo here — each
+        // renderer path takes its own modulo (walker % 8, reader % 12, etc.) so
+        // animations with different frame counts all play to completion.
         frameCounter += 1
         if frameCounter >= frameDelay {
             frameCounter = 0
-            currentFrame = (currentFrame + 1) % 8
+            currentFrame += 1
         }
 
         switch state {
@@ -60,6 +68,12 @@ class SimplePenguin {
 
         case .walking:
             updateWalking(collision: collision)
+
+        case .tumbling:
+            updateTumbling(collision: collision)
+
+        case .acting:
+            updateActing(collision: collision)
 
         case .dead:
             // Dead penguins don't move
@@ -115,6 +129,42 @@ class SimplePenguin {
         }
     }
 
+    private func updateTumbling(collision: SimpleCollision) {
+        // Stronger acceleration and a lower terminal velocity than the gentle
+        // .falling state, matching the original xpenguins tumbler config
+        // (acceleration 1, terminal_velocity 8).
+        velocity.y += 1.0
+        velocity.y = min(velocity.y, 8.0)
+
+        let nextX = position.x + velocity.x
+        let nextY = position.y - velocity.y
+        let penguinBottomY = position.y - size.height / 2
+        let nextBottomY = nextY - size.height / 2
+
+        if let surface = collision.checkFallingCollision(
+            penguinX: nextX,
+            penguinY: penguinBottomY,
+            nextY: nextBottomY
+        ) {
+            // Land and resume walking
+            position.x = nextX
+            position.y = surface.top + size.height / 2
+            velocity.y = 0
+            velocity.x = Bool.random() ? walkSpeed : -walkSpeed
+            state = .walking
+            currentSurface = surface
+        } else {
+            position.x = nextX
+            position.y = nextY
+        }
+
+        // Respawn if the tumble took us off the bottom of the world
+        let lowestScreenBottom = NSScreen.screens.map { $0.frame.minY }.min() ?? 0
+        if position.y < lowestScreenBottom - 100 {
+            respawn()
+        }
+    }
+
     private func updateWalking(collision: SimpleCollision) {
         guard let cached = currentSurface else {
             state = .falling
@@ -140,26 +190,76 @@ class SimplePenguin {
         // Move horizontally
         position.x += velocity.x
 
-        // Check if we walked off the edge (or the window narrowed underfoot)
+        // Walked off the surface? Behavior depends on what surface it was:
+        //   - Window edge: tumble off with horizontal momentum (cartwheel arc).
+        //   - Screen-bottom ground edge: fall straight off the screen, respawn
+        //     from the top — keeps the population cycling instead of clumping.
         if !surface.contains(x: position.x) {
-            state = .falling
+            if surface.windowID != nil {
+                state = .tumbling
+            } else {
+                velocity.x = 0
+                state = .falling
+            }
             currentSurface = nil
-            velocity.x *= 0.5 // Keep some horizontal momentum
             return
         }
 
-        // Handle screen wrapping (only for ground level)
-        if surface.windowID == nil { // Ground surface
-            if position.x < surface.left {
-                position.x = surface.right
-            } else if position.x > surface.right {
-                position.x = surface.left
-            }
+        // Occasionally pause to read a book. Normal penguins only — skateboarders
+        // don't have a digger sprite shipped, and a stationary skateboarder looks
+        // wrong anyway.
+        if penguinType == "normal" && Int.random(in: 1...600) == 1 {
+            state = .acting
+            velocity.x = 0
+            actionTicks = 200 // ~3.3s at 60fps
+            currentFrame = 0
+            return
         }
 
         // Occasionally reverse direction (more frequent to keep penguins walking)
         if Int.random(in: 1...120) == 1 {
             velocity.x = -velocity.x
+        }
+    }
+
+    private func updateActing(collision: SimpleCollision) {
+        // Re-resolve window-backed surfaces so a reader rides a moving window.
+        guard let cached = currentSurface else {
+            state = .falling
+            return
+        }
+        let surface: WindowSurface
+        if let id = cached.windowID {
+            guard let live = collision.getSurface(forWindowID: id) else {
+                // Window vanished mid-read — drop into a fall.
+                state = .falling
+                currentSurface = nil
+                return
+            }
+            surface = live
+            position.y = surface.top + size.height / 2
+            currentSurface = surface
+        } else {
+            surface = cached
+        }
+
+        // If the window narrowed underfoot, treat like walking off it.
+        if !surface.contains(x: position.x) {
+            if surface.windowID != nil {
+                state = .tumbling
+            } else {
+                velocity.x = 0
+                state = .falling
+            }
+            currentSurface = nil
+            return
+        }
+
+        actionTicks -= 1
+        if actionTicks <= 0 {
+            state = .walking
+            velocity.x = Bool.random() ? walkSpeed : -walkSpeed
+            currentFrame = 0
         }
     }
 
